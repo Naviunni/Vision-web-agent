@@ -1,0 +1,4 @@
+playwright
+requests
+pillow
+openai>=1.0.0
