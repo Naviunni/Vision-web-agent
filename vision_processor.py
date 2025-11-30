@@ -21,29 +21,26 @@ class VisionProcessor:
         try:
             return response.json()
         except json.JSONDecodeError:
-            # If the response is not valid JSON, return the raw text.
-            # This can happen if the Qwen server's output is truncated.
             return {"raw_output": response.text}
 
 
-    def describe_image(self, image_bytes):
+    def describe_image(self, image_bytes, question=None):
         """
-        Takes an image and returns a concise description of the actionable elements on the page.
+        Takes an image and returns a description of the elements on the page.
+        If a question is provided, it will be used as the prompt.
         """
-        prompt = "Describe the main elements on this webpage. Include buttons, input fields, and links. Be concise and use bullet points."
+        if question:
+            prompt = question
+        else:
+            prompt = "Describe the main elements on this webpage. Include buttons, input fields, and links. Be concise and use bullet points."
+        
         model_output = self.query_model(image_bytes, prompt)
         
-        # The Qwen model seems to return the prompt as part of the raw_output.
-        # We need to extract only the assistant's response.
         raw_output = model_output["raw_output"]
         
-        # Find the start of the assistant's response after the prompt.
-        prompt_text_start = "Describe the main elements on this webpage."
         if "assistant\n" in raw_output:
-            # Find the last occurrence of assistant\n, which should be the start of the response.
             actual_response = raw_output.split("assistant\n")[-1].strip()
         else:
-            # If "assistant\n" is not found, assume the entire raw_output is the response.
             actual_response = raw_output.strip()
 
         return actual_response

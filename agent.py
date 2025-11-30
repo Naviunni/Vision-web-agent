@@ -29,15 +29,26 @@ class Agent:
             return
 
         while True:
-            # 1. Take a screenshot and observe the page
+            # 1. Take a screenshot and get a general observation
             screenshot_bytes = self.web_navigator.take_screenshot()
             screenshot_description = self.observer.observe(screenshot_bytes)
-            print(f"👀 Page observation: {screenshot_description}")
+            
+            # This is the observation loop. The agent can iteratively observe the page.
+            while True:
+                print(f"👀 Page observation: {screenshot_description}")
 
-            # 2. Decide on the next action
-            action = self.planner.get_next_action(self.conversation_history, screenshot_description)
+                # 2. Decide on the next action
+                action = self.planner.get_next_action(self.conversation_history, screenshot_description)
 
-            # 3. Execute the action and generate a factual response
+                # If the planner wants to observe more, we stay in the observation loop
+                if action["action"] == "OBSERVE":
+                    screenshot_description = self.observer.observe(screenshot_bytes, action["question"])
+                    continue
+                else:
+                    # If the planner decides on a final action, we break the observation loop.
+                    break
+            
+            # 3. Execute the final action
             response_to_user = ""
             if action["action"] == "ASK_USER":
                 response_to_user = action["question"]
@@ -64,6 +75,10 @@ class Agent:
                 self.web_navigator.type(action["text"], action["element_description"])
                 response_to_user = f"I have typed '{action['text']}' into '{action['element_description']}'."
             
+            elif action["action"] == "SCROLL":
+                self.web_navigator.scroll(action["direction"])
+                response_to_user = f"I have scrolled {action['direction']}."
+
             else:
                 response_to_user = "I am not sure what to do next. I will ask the user for help."
                 print(f"Agent: {response_to_user}")

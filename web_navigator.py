@@ -14,12 +14,21 @@ class WebNavigator:
     def navigate(self, url):
         print(f"➡️ Navigating to {url}")
         self.page.goto(url, wait_until="networkidle")
-        self.page.wait_for_timeout(1000) # A small extra wait for any dynamic scripts to finish
+        self.page.wait_for_timeout(1000)
 
     def take_screenshot(self):
         print("📸 Taking screenshot")
         screenshot_bytes = self.page.screenshot()
         return screenshot_bytes
+
+    def scroll(self, direction):
+        print(f"↕️ Scrolling {direction}")
+        if direction == "down":
+            self.page.evaluate("window.scrollBy(0, window.innerHeight)")
+        elif direction == "up":
+            self.page.evaluate("window.scrollBy(0, -window.innerHeight)")
+        self.page.wait_for_timeout(1000)
+
 
     def click(self, element_description):
         screenshot_bytes = self.take_screenshot()
@@ -27,7 +36,6 @@ class WebNavigator:
         
         x1, y1, x2, y2 = bbox
         
-        # The bounding box is normalized, so we need to convert it to pixel coordinates
         viewport_size = self.page.viewport_size
         px1 = int(x1 / 1000 * viewport_size['width'])
         py1 = int(y1 / 1000 * viewport_size['height'])
@@ -42,7 +50,7 @@ class WebNavigator:
         self.page.wait_for_timeout(1000)
 
     def type(self, text, element_description):
-        self.click(element_description) # First click on the element to focus
+        self.click(element_description)
         print(f"Typing '{text}' into '{element_description}'")
         self.page.keyboard.type(text)
         self.page.wait_for_timeout(500)
