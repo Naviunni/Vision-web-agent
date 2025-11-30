@@ -31,7 +31,7 @@ class Agent:
         while True:
             # 1. Take a screenshot and get a general observation
             screenshot_bytes = self.web_navigator.take_screenshot()
-            screenshot_description = self.observer.observe(screenshot_bytes)
+            screenshot_description = self.observer.observe(screenshot_bytes, question=None) # Corrected call
             
             # This is the observation loop. The agent can iteratively observe the page.
             while True:
