@@ -27,29 +27,36 @@ class Agent:
             print("Goodbye!")
             self.web_navigator.close()
             return
+        
+        # Initialize the screenshot description
+        screenshot_description = ""
 
         while True:
-            # 1. Take a screenshot and get a general observation
+            # 1. Always take a fresh screenshot at the beginning of the loop.
             screenshot_bytes = self.web_navigator.take_screenshot()
-            screenshot_description = self.observer.observe(screenshot_bytes, question=None) # Corrected call
             
-            # This is the observation loop. The agent can iteratively observe the page.
-            while True:
-                print(f"👀 Page observation: {screenshot_description}")
+            # If the previous action was not OBSERVE, get a general description.
+            # Otherwise, the screenshot_description is already set by the OBSERVE action.
+            if not screenshot_description:
+                 screenshot_description = self.observer.observe(screenshot_bytes)
 
-                # 2. Decide on the next action
-                action = self.planner.get_next_action(self.conversation_history, screenshot_description)
+            print(f"👀 Page observation: {screenshot_description}")
 
-                # If the planner wants to observe more, we stay in the observation loop
-                if action["action"] == "OBSERVE":
-                    screenshot_description = self.observer.observe(screenshot_bytes, action["question"])
-                    continue
-                else:
-                    # If the planner decides on a final action, we break the observation loop.
-                    break
-            
-            # 3. Execute the final action
+            # 2. Decide on the next action
+            action = self.planner.get_next_action(self.conversation_history, screenshot_description)
+
+            # 3. Execute the action
             response_to_user = ""
+            
+            if action["action"] == "OBSERVE":
+                # If we observe, we update the description for the next loop iteration.
+                screenshot_description = self.observer.observe(screenshot_bytes, action["question"])
+                # We don't add anything to the history here, as we are in an observation sub-loop.
+                continue
+
+            # If we are not observing, we reset the screenshot description for the next turn.
+            screenshot_description = ""
+            
             if action["action"] == "ASK_USER":
                 response_to_user = action["question"]
                 print(f"Agent: {response_to_user}")
