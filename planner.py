@@ -17,7 +17,7 @@ class Planner:
         You can perform the following actions:
         - NAVIGATE(url): Go to a specific URL.
         - CLICK(element_description): Click on a specific element on the page.
-        - TYPE(text, element_description): Type text into a specific input field.
+        - TYPE(text, element_description): Type text into a specific input field. This action will also press Enter to submit the form.
         - SCROLL(direction): Scroll the page up or down. direction should be 'up' or 'down'.
         - OBSERVE(question): Ask a specific question about the current screenshot to get more details.
         - ASK_USER(question): Ask the user for clarification.

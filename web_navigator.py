@@ -53,7 +53,12 @@ class WebNavigator:
         self.click(element_description)
         print(f"Typing '{text}' into '{element_description}'")
         self.page.keyboard.type(text)
-        self.page.wait_for_timeout(500)
+        
+        print("Pressing Enter to submit.")
+        self.page.keyboard.press("Enter")
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_timeout(1000)
+
 
     def close(self):
         self.browser.close()
