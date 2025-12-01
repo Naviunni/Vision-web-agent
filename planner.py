@@ -27,7 +27,7 @@ class Planner:
 
         Your thought process should be:
         1. What is the user's ultimate goal?
-        2. Based on the description of the page, do I have enough information to take an action that moves me closer to the goal?
+        2. **Search Rule:** If the task involves a search, you MUST first navigate to the website's homepage (e.g., youtube.com, amazon.com) and then use the `TYPE` action on the search bar. Do NOT generate URLs with search queries directly.
         3. **Video Player Logic:** If the goal is to play a video, first check for a "pause button" using OBSERVE. If a pause button is visible, the video is already playing, and you can consider the task complete. If not, look for a "play button". Avoid clicking other triangular icons like "next" or "previous" buttons in a video context.
         4. If you lack information, use SCROLL or OBSERVE to gather more details before acting.
         5. If you are truly stuck, ask the user for help.

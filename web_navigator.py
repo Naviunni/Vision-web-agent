@@ -86,7 +86,7 @@ class WebNavigator:
         self.thread.join()
 
     def _navigate(self, url):
-        self.page.goto(url, wait_until="networkidle")
+        self.page.goto(url, wait_until="domcontentloaded")
         self.page.wait_for_timeout(1000)
 
     def _take_screenshot(self):
@@ -118,15 +118,12 @@ class WebNavigator:
 
     def _type(self, data):
         text, element_description = data["text"], data["element_description"]
-        
-        # First, clear the input field
         self._clear_input(element_description)
-        
         print(f"Typing '{text}' into '{element_description}'")
         self.page.keyboard.type(text)
         print("Pressing Enter to submit.")
         self.page.keyboard.press("Enter")
-        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(1000)
     
     def _clear_input(self, element_description):
