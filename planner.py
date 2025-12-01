@@ -6,10 +6,10 @@ import traceback
 class Planner:
     def __init__(self, api_key):
         self.client = openai.OpenAI(api_key=api_key)
-        self.model = "gpt-5-mini"
+        self.model = "gpt-5-mini" # Changed from gpt-3.5-turbo
 
     def get_next_action(self, conversation_history, screenshot_description):
-        print("🤖 Deciding next action with GPT...")
+        print("🤖 Deciding next action with GPT-5-mini...")
 
         system_prompt = """
         You are a web agent's planner. Your role is to decide the next action to take to achieve the user's goal.
@@ -31,16 +31,6 @@ class Planner:
         3. If not, can I get more information by scrolling or observing?
         4. If I am truly stuck, I should ask the user for help.
         5. Formulate the action as a single, well-formed JSON object. All arguments should be at the top level.
-
-        Here are some examples of valid JSON responses:
-        {"action": "NAVIGATE", "url": "https://www.google.com"}
-        {"action": "CLICK", "element_description": "the 'Add to Cart' button"}
-        {"action": "TYPE", "text": "laptops", "element_description": "the search bar"}
-        {"action": "CLEAR_INPUT", "element_description": "the search bar"}
-        {"action": "SCROLL", "direction": "down"}
-        {"action": "OBSERVE", "question": "What are the titles of the first three products in the list?"}
-        {"action": "ASK_USER", "question": "Which brand of laptop are you looking for?"}
-        {"action": "FINISH", "reason": "The user has found the laptop they were looking for."}
 
         You must respond with a single JSON object representing the action to take.
         """
@@ -74,10 +64,14 @@ class Planner:
                 action_str = action_json[json_start : json_end + 1]
             else:
                 action_str = action_json
-
-            action = json.loads(action_str)
             
-            if "action" not in action or action["action"] not in ["NAVIGATE", "CLICK", "TYPE", "CLEAR_INPUT", "SCROLL", "OBSERVE", "ASK_USER", "FINISH"]:
+            try:
+                action = json.loads(action_str)
+            except json.JSONDecodeError:
+                print("Failed to decode JSON from model, will retry.")
+                return {"action": "RETRY", "reason": "Malformed JSON response from planner."}
+
+            if "action" not in action or action["action"] not in ["NAVIGATE", "CLICK", "TYPE", "CLEAR_INPUT", "SCROLL", "OBSERVE", "ASK_USER", "FINISH", "RETRY"]:
                 raise ValueError("Invalid action specified.")
 
             return action

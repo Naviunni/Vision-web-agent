@@ -7,7 +7,6 @@ from agent import Agent
 app = Flask(__name__)
 socketio = SocketIO(app)
 
-# Global state for the agent and user input
 agent_instance = Agent()
 user_input_event = Event()
 user_response = None
@@ -28,16 +27,16 @@ def handle_disconnect():
 def handle_start_task(data):
     goal = data['goal']
     print(f"Received new task from user: {goal}")
-    # Run the agent's main loop in a background thread
     socketio.start_background_task(agent_instance.run, goal, socketio, user_input_event)
 
 @socketio.on('user_response')
 def handle_user_response(data):
     global user_response
     user_response = data['response']
-    user_input_event.set() # Signal that user input has been received
+    user_input_event.set()
 
 if __name__ == '__main__':
     # Running without debug mode to prevent issues with the Playwright thread
     # and Werkzeug reloader.
-    socketio.run(app, debug=False, allow_unsafe_werkzeug=True)
+    # Explicitly binding to 127.0.0.1 and port 5001 to resolve potential access issues.
+    socketio.run(app, host='127.0.0.1', port=5001, debug=False, allow_unsafe_werkzeug=True)

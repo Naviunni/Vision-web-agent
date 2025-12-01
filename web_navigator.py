@@ -101,21 +101,27 @@ class WebNavigator:
         self.page.wait_for_timeout(1000)
 
     def _click(self, element_description):
+        viewport_size = self.page.viewport_size
+        self.page.mouse.move(viewport_size['width'] / 2, viewport_size['height'] / 2)
+        self.page.wait_for_timeout(500) 
+
         screenshot_bytes = self._take_screenshot()
         bbox = self.vision_processor.get_element_bbox(screenshot_bytes, element_description)
         x1, y1, x2, y2 = bbox
-        viewport_size = self.page.viewport_size
+        
         px1, py1 = int(x1 / 1000 * viewport_size['width']), int(y1 / 1000 * viewport_size['height'])
         px2, py2 = int(x2 / 1000 * viewport_size['width']), int(y2 / 1000 * viewport_size['height'])
         cx, cy = (px1 + px2) // 2, (py1 + py2) // 2
         print(f"Clicking on '{element_description}' at: ({cx}, {cy})")
         self.page.mouse.click(cx, cy)
-        # Removed wait_for_load_state("networkidle") which was causing timeouts
-        self.page.wait_for_timeout(1000) # Wait for UI to update
+        self.page.wait_for_timeout(1000) 
 
     def _type(self, data):
         text, element_description = data["text"], data["element_description"]
-        self._click(element_description)
+        
+        # First, clear the input field
+        self._clear_input(element_description)
+        
         print(f"Typing '{text}' into '{element_description}'")
         self.page.keyboard.type(text)
         print("Pressing Enter to submit.")

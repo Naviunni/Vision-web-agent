@@ -8,13 +8,12 @@ class Agent:
     def __init__(self):
         self.openai_api_key = os.environ.get("OPENAI_API_KEY")
         if not self.openai_api_key:
-            # In a web context, we can't prompt. This should be configured via environment variables.
-            print("Warning: OPENAI_API_KEY not set.")
-            # For simplicity, we'll try to read it from a file if not in env.
             if os.path.exists(".openai_api_key"):
                 with open(".openai_api_key", "r") as f:
                     self.openai_api_key = f.read().strip()
                 os.environ["OPENAI_API_KEY"] = self.openai_api_key
+            else:
+                 print("Warning: OPENAI_API_KEY not set.")
 
         self.vision_processor = VisionProcessor()
         self.web_navigator = WebNavigator(self.vision_processor)
@@ -28,23 +27,22 @@ class Agent:
         screenshot_description = ""
 
         while True:
-            # 1. Always take a fresh screenshot
             screenshot_bytes = self.web_navigator.take_screenshot()
             
-            # If the previous action was not OBSERVE, get a general description.
-            # Otherwise, the screenshot_description is already set by the OBSERVE action.
             if not screenshot_description:
                  screenshot_description = self.observer.observe(screenshot_bytes)
 
             socketio.emit('agent_observation', {'data': screenshot_description})
 
-            # 2. Decide on the next action
             action = self.planner.get_next_action(self.conversation_history, screenshot_description)
 
             screenshot_description = ""
+
+            if action["action"] == "RETRY":
+                print(f"🤖 Planner returned malformed JSON, retrying...")
+                continue
             
-            if action["action"] == "OBSERVE":
-                # If we observe, we update the description for the next loop iteration.
+            elif action["action"] == "OBSERVE":
                 screenshot_description = self.observer.observe(screenshot_bytes, action["question"])
                 continue
 
@@ -52,11 +50,10 @@ class Agent:
                 question = action["question"]
                 socketio.emit('request_user_input', {'question': question})
                 
-                # Wait for the user to respond via the UI
                 user_input_event.wait()
                 user_input_event.clear()
                 
-                from app import user_response # Import here to avoid circular dependency issues at startup
+                from app import user_response
                 
                 self.conversation_history.append({"role": "assistant", "content": question})
                 self.conversation_history.append({"role": "user", "content": user_response})
@@ -64,8 +61,9 @@ class Agent:
 
             elif action["action"] == "FINISH":
                 response_to_user = action["reason"]
-                socketio.emit('agent_response', {'data': response_to_user})
-                break
+                socketio.emit('agent_response', {'data': f"Task Complete: {response_to_user}"})
+                print("✅ Task finished. Terminating agent thread.")
+                return # Exit the run method to terminate the thread
 
             elif action["action"] == "NAVIGATE":
                 self.web_navigator.navigate(action["url"])
