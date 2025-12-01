@@ -6,7 +6,7 @@ import traceback
 class Planner:
     def __init__(self, api_key):
         self.client = openai.OpenAI(api_key=api_key)
-        self.model = "gpt-5-mini" # Changed from gpt-3.5-turbo
+        self.model = "gpt-5-mini"
 
     def get_next_action(self, conversation_history, screenshot_description):
         print("🤖 Deciding next action with GPT-5-mini...")
@@ -28,9 +28,10 @@ class Planner:
         Your thought process should be:
         1. What is the user's ultimate goal?
         2. Based on the description of the page, do I have enough information to take an action that moves me closer to the goal?
-        3. If not, can I get more information by scrolling or observing?
-        4. If I am truly stuck, I should ask the user for help.
-        5. Formulate the action as a single, well-formed JSON object. All arguments should be at the top level.
+        3. **Video Player Logic:** If the goal is to play a video, first check for a "pause button" using OBSERVE. If a pause button is visible, the video is already playing, and you can consider the task complete. If not, look for a "play button". Avoid clicking other triangular icons like "next" or "previous" buttons in a video context.
+        4. If you lack information, use SCROLL or OBSERVE to gather more details before acting.
+        5. If you are truly stuck, ask the user for help.
+        6. Formulate the action as a single, well-formed JSON object. All arguments should be at the top level.
 
         You must respond with a single JSON object representing the action to take.
         """
@@ -52,7 +53,6 @@ class Planner:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                # temperature=0.0,
             )
 
             action_json = response.choices[0].message.content
