@@ -1,14 +1,15 @@
 import openai
 import json
 import os
+import traceback
 
 class Planner:
     def __init__(self, api_key):
         self.client = openai.OpenAI(api_key=api_key)
-        self.model = "gpt-4"
+        self.model = "gpt-5-mini"
 
     def get_next_action(self, conversation_history, screenshot_description):
-        print("🤖 Deciding next action with GPT-4...")
+        print("🤖 Deciding next action with GPT...")
 
         system_prompt = """
         You are a web agent's planner. Your role is to decide the next action to take to achieve the user's goal.
@@ -27,7 +28,7 @@ class Planner:
         Your thought process should be:
         1. What is the user's ultimate goal?
         2. Based on the description of the page, do I have enough information to take an action that moves me closer to the goal?
-        3. If not, can I get more information by scrolling (if the information is likely off-screen) or by observing the page more closely with a specific question?
+        3. If not, can I get more information by scrolling or observing?
         4. If I am truly stuck, I should ask the user for help.
         5. Formulate the action as a single, well-formed JSON object. All arguments should be at the top level.
 
@@ -54,10 +55,6 @@ class Planner:
         Based on the conversation and the page description, what is the next logical action to take to progress towards the user's goal?
         """
 
-        print("\n---PROMPT SENT TO PLANNER---\n")
-        print(user_prompt)
-        print("\n---------------------------\n")
-
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -65,15 +62,11 @@ class Planner:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                temperature=0.0,
+                # temperature=0.0,
             )
 
             action_json = response.choices[0].message.content
             
-            print("\n---RESPONSE FROM PLANNER---\n")
-            print(action_json)
-            print("\n---------------------------\n")
-
             json_start = action_json.find('{')
             json_end = action_json.rfind('}')
 
@@ -90,5 +83,6 @@ class Planner:
             return action
 
         except Exception as e:
-            print(f"Error while planning: {e}")
+            print(f"Error while planning:")
+            traceback.print_exc()
             return {"action": "ASK_USER", "question": "I'm having trouble deciding what to do next. Can you please clarify your goal?"}

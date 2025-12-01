@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Agent</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div id="chat-box" class="chat-box">
+            <div class="message agent-message">Hello! I am your web agent. How can I help you today?</div>
+        </div>
+        <div class="chat-input">
+            <input type="text" id="user-input" placeholder="Enter your goal...">
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const socket = io.connect(location.protocol + '//' + document.domain + ':' + location.port);
+
+            const chatBox = document.getElementById('chat-box');
+            const userInput = document.getElementById('user-input');
+            const sendButton = document.getElementById('send-button');
+
+            const addMessage = (text, type, source) => {
+                const messageElement = document.createElement('div');
+                messageElement.classList.add('message', type);
+                
+                const sourceElement = document.createElement('strong');
+                sourceElement.textContent = source;
+                
+                messageElement.appendChild(sourceElement);
+                messageElement.append(text);
+                chatBox.appendChild(messageElement);
+                chatBox.scrollTop = chatBox.scrollHeight;
+            };
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+            });
+
+            socket.on('agent_response', (msg) => {
+                addMessage(msg.data, 'agent-message', 'Agent: ');
+            });
+
+            socket.on('agent_observation', (msg) => {
+                addMessage(msg.data, 'observation-message', 'Observation: ');
+            });
+
+            socket.on('request_user_input', (msg) => {
+                addMessage(msg.question, 'agent-message', 'Agent: ');
+                userInput.placeholder = "Your response...";
+                userInput.disabled = false;
+                sendButton.disabled = false;
+            });
+
+            const sendMessage = () => {
+                const message = userInput.value;
+                if (message.trim() !== '') {
+                    addMessage(message, 'user-message', 'You: ');
+                    
+                    if (sendButton.innerText === 'Send') {
+                        socket.emit('start_task', { goal: message });
+                        sendButton.innerText = 'Respond';
+                        sendButton.disabled = true;
+                        userInput.disabled = true;
+                        userInput.placeholder = "Agent is working...";
+                    } else {
+                        socket.emit('user_response', { response: message });
+                        userInput.disabled = true;
+                        sendButton.disabled = true;
+                        userInput.placeholder = "Agent is working...";
+                    }
+                    userInput.value = '';
+                }
+            };
+
+            sendButton.addEventListener('click', sendMessage);
+            userInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

@@ -8,8 +8,13 @@ class Agent:
     def __init__(self):
         self.openai_api_key = os.environ.get("OPENAI_API_KEY")
         if not self.openai_api_key:
-            self.openai_api_key = input("Please enter your OpenAI API key: ")
-            os.environ["OPENAI_API_KEY"] = self.openai_api_key
+            # In a web context, we can't prompt. This should be configured via environment variables.
+            print("Warning: OPENAI_API_KEY not set.")
+            # For simplicity, we'll try to read it from a file if not in env.
+            if os.path.exists(".openai_api_key"):
+                with open(".openai_api_key", "r") as f:
+                    self.openai_api_key = f.read().strip()
+                os.environ["OPENAI_API_KEY"] = self.openai_api_key
 
         self.vision_processor = VisionProcessor()
         self.web_navigator = WebNavigator(self.vision_processor)
@@ -17,22 +22,13 @@ class Agent:
         self.planner = Planner(self.openai_api_key)
         self.conversation_history = []
 
-    def run(self):
-        print("Hello! I am your web agent. How can I help you today?")
-        
-        user_goal = input("You: ")
+    def run(self, user_goal, socketio, user_input_event):
         self.conversation_history.append({"role": "user", "content": user_goal})
-
-        if user_goal.lower() in ["exit", "quit"]:
-            print("Goodbye!")
-            self.web_navigator.close()
-            return
         
-        # Initialize the screenshot description
         screenshot_description = ""
 
         while True:
-            # 1. Always take a fresh screenshot at the beginning of the loop.
+            # 1. Always take a fresh screenshot
             screenshot_bytes = self.web_navigator.take_screenshot()
             
             # If the previous action was not OBSERVE, get a general description.
@@ -40,34 +36,35 @@ class Agent:
             if not screenshot_description:
                  screenshot_description = self.observer.observe(screenshot_bytes)
 
-            print(f"👀 Page observation: {screenshot_description}")
+            socketio.emit('agent_observation', {'data': screenshot_description})
 
             # 2. Decide on the next action
             action = self.planner.get_next_action(self.conversation_history, screenshot_description)
 
-            # 3. Execute the action
-            response_to_user = ""
+            screenshot_description = ""
             
             if action["action"] == "OBSERVE":
                 # If we observe, we update the description for the next loop iteration.
                 screenshot_description = self.observer.observe(screenshot_bytes, action["question"])
-                # We don't add anything to the history here, as we are in an observation sub-loop.
                 continue
 
-            # If we are not observing, we reset the screenshot description for the next turn.
-            screenshot_description = ""
-            
-            if action["action"] == "ASK_USER":
-                response_to_user = action["question"]
-                print(f"Agent: {response_to_user}")
-                user_input = input(f"You: ")
-                self.conversation_history.append({"role": "assistant", "content": response_to_user})
-                self.conversation_history.append({"role": "user", "content": user_input})
+            elif action["action"] == "ASK_USER":
+                question = action["question"]
+                socketio.emit('request_user_input', {'question': question})
+                
+                # Wait for the user to respond via the UI
+                user_input_event.wait()
+                user_input_event.clear()
+                
+                from app import user_response # Import here to avoid circular dependency issues at startup
+                
+                self.conversation_history.append({"role": "assistant", "content": question})
+                self.conversation_history.append({"role": "user", "content": user_response})
                 continue 
 
             elif action["action"] == "FINISH":
                 response_to_user = action["reason"]
-                print(f"Agent: {response_to_user}")
+                socketio.emit('agent_response', {'data': response_to_user})
                 break
 
             elif action["action"] == "NAVIGATE":
@@ -92,17 +89,12 @@ class Agent:
 
             else:
                 response_to_user = "I am not sure what to do next. I will ask the user for help."
-                print(f"Agent: {response_to_user}")
+                socketio.emit('agent_response', {'data': response_to_user})
                 self.conversation_history.append({"role": "assistant", "content": response_to_user})
                 continue
 
-            # 4. Add the factual response to the history and print it
             self.conversation_history.append({"role": "assistant", "content": response_to_user})
-            print(f"Agent: {response_to_user}")
+            socketio.emit('agent_response', {'data': response_to_user})
 
-
-        self.web_navigator.close()
-
-if __name__ == "__main__":
-    agent = Agent()
-    agent.run()
+        # Do not close the browser so the user can see the final page
+        # self.web_navigator.close()
