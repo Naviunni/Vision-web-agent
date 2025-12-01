@@ -86,6 +86,10 @@ class Agent:
                 self.web_navigator.scroll(action["direction"])
                 response_to_user = f"I have scrolled {action['direction']}."
 
+            elif action["action"] == "CLEAR_INPUT":
+                self.web_navigator.clear_input(action["element_description"])
+                response_to_user = f"I have cleared the input field '{action['element_description']}'."
+
             else:
                 response_to_user = "I am not sure what to do next. I will ask the user for help."
                 print(f"Agent: {response_to_user}")

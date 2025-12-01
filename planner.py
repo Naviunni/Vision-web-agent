@@ -18,6 +18,7 @@ class Planner:
         - NAVIGATE(url): Go to a specific URL.
         - CLICK(element_description): Click on a specific element on the page.
         - TYPE(text, element_description): Type text into a specific input field. This action will also press Enter to submit the form.
+        - CLEAR_INPUT(element_description): Clear the text from a specific input field.
         - SCROLL(direction): Scroll the page up or down. direction should be 'up' or 'down'.
         - OBSERVE(question): Ask a specific question about the current screenshot to get more details.
         - ASK_USER(question): Ask the user for clarification.
@@ -34,6 +35,7 @@ class Planner:
         {"action": "NAVIGATE", "url": "https://www.google.com"}
         {"action": "CLICK", "element_description": "the 'Add to Cart' button"}
         {"action": "TYPE", "text": "laptops", "element_description": "the search bar"}
+        {"action": "CLEAR_INPUT", "element_description": "the search bar"}
         {"action": "SCROLL", "direction": "down"}
         {"action": "OBSERVE", "question": "What are the titles of the first three products in the list?"}
         {"action": "ASK_USER", "question": "Which brand of laptop are you looking for?"}
@@ -82,7 +84,7 @@ class Planner:
 
             action = json.loads(action_str)
             
-            if "action" not in action or action["action"] not in ["NAVIGATE", "CLICK", "TYPE", "SCROLL", "OBSERVE", "ASK_USER", "FINISH"]:
+            if "action" not in action or action["action"] not in ["NAVIGATE", "CLICK", "TYPE", "CLEAR_INPUT", "SCROLL", "OBSERVE", "ASK_USER", "FINISH"]:
                 raise ValueError("Invalid action specified.")
 
             return action
