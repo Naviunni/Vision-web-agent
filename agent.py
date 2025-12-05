@@ -21,10 +21,16 @@ class Agent:
         self.planner = Planner(self.openai_api_key)
         self.conversation_history = []
 
-    def run(self, user_goal, socketio, user_input_event):
+    def reset(self):
+        self.conversation_history = []
+
+    def run(self, user_goal, socketio, shared_state):
         self.conversation_history.append({"role": "user", "content": user_goal})
         
         screenshot_description = ""
+        user_input_event = shared_state["user_input_event"]
+        retry_count = 0
+        max_retries = 3
 
         while True:
             screenshot_bytes = self.web_navigator.take_screenshot()
@@ -39,11 +45,41 @@ class Agent:
             screenshot_description = ""
 
             if action["action"] == "RETRY":
-                print(f"🤖 Planner returned malformed JSON, retrying...")
+                retry_count += 1
+                if retry_count >= max_retries:
+                    question = "I'm having trouble and need your help. What should I do next?"
+                    socketio.emit('request_user_input', {'question': question})
+                    user_input_event.wait()
+                    user_input_event.clear()
+                    user_response = shared_state["user_response"]
+                    self.conversation_history.append({"role": "assistant", "content": question})
+                    self.conversation_history.append({"role": "user", "content": user_response})
+                    retry_count = 0 
+                else:
+                    print(f"🤖 Planner returned malformed JSON, retrying ({retry_count}/{max_retries})...")
                 continue
             
-            elif action["action"] == "OBSERVE":
+            retry_count = 0 
+
+            if action["action"] == "OBSERVE":
                 screenshot_description = self.observer.observe(screenshot_bytes, action["question"])
+                continue
+
+            elif action["action"] == "SUMMARIZE_OPTIONS":
+                summary_message = f"I found a few options for {action['topic']}:\n"
+                for i, option in enumerate(action['options']):
+                    title = option.get('title', 'N/A')
+                    price = option.get('price', 'N/A')
+                    summary_message += f"{i+1}. {title} - {price}\n"
+                summary_message += "\nPlease let me know which one you'd like, or if you want me to keep looking."
+                
+                question = summary_message
+                socketio.emit('request_user_input', {'question': question})
+                user_input_event.wait()
+                user_input_event.clear()
+                user_response = shared_state["user_response"]
+                self.conversation_history.append({"role": "assistant", "content": question})
+                self.conversation_history.append({"role": "user", "content": user_response})
                 continue
 
             elif action["action"] == "ASK_USER":
@@ -53,7 +89,7 @@ class Agent:
                 user_input_event.wait()
                 user_input_event.clear()
                 
-                from app import user_response
+                user_response = shared_state["user_response"]
                 
                 self.conversation_history.append({"role": "assistant", "content": question})
                 self.conversation_history.append({"role": "user", "content": user_response})
@@ -62,8 +98,9 @@ class Agent:
             elif action["action"] == "FINISH":
                 response_to_user = action["reason"]
                 socketio.emit('agent_response', {'data': f"Task Complete: {response_to_user}"})
-                print("✅ Task finished. Terminating agent thread.")
-                return # Exit the run method to terminate the thread
+                socketio.emit('task_finished')
+                print("✅ Task finished.")
+                return 
 
             elif action["action"] == "NAVIGATE":
                 self.web_navigator.navigate(action["url"])
@@ -94,5 +131,3 @@ class Agent:
             self.conversation_history.append({"role": "assistant", "content": response_to_user})
             socketio.emit('agent_response', {'data': response_to_user})
 
-        # Do not close the browser so the user can see the final page
-        # self.web_navigator.close()
