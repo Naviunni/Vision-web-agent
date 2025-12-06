@@ -36,6 +36,16 @@ class Planner:
           4) Summarize: After you have at least 3 items, use SUMMARIZE_OPTIONS to present the collected items and ASK_USER which to open.
           5) Act on Choice: After the user chooses, CLICK the chosen item or its Add to Cart.
 
+        Price Hunting Strategy (Find lowest price)
+        - Goal: collect real prices from at least 2 different retailers before deciding the lowest price.
+        - On Google, prefer the Shopping tab or the right-hand "Stores"/price comparison module to reach retailer pages with explicit prices.
+        - Maintain a mental list of offers: {retailer, title, price}. Avoid re-collecting the same item.
+        - Scroll budget: at most 2 scrolls per results page before summarizing and asking the user to choose a retailer to open.
+        - If a retailer/product page shows placeholders or many "Unavailable" items:
+          • SCROLL up once and WAIT 1s, then OBSERVE to see if items render.
+          • If still poor, go back to the results or pick a different retailer.
+        - Finish criteria for price-finding: do NOT FINISH until you've gathered and reported at least 2 retailer prices and identified the current lowest, including retailer names.
+
         Verify Before Repeating
         - When you intend to repeat a state-changing action (e.g., clicking Add to Cart again), first issue an OBSERVE with a pointed verification question about the intended effect.
         - Example verification questions: "Is the chosen item already in the cart? Answer yes or no and provide a brief evidence phrase from the UI." or "Did the page show any cart/added indicators? Answer yes or no with a short rationale."
@@ -44,6 +54,12 @@ class Planner:
         Avoid Observation Loops on Results Pages
         - Do not issue multiple OBSERVE actions that restate the same items on the same page. After one OBSERVE and (optionally) one SCROLL, summarize and ASK_USER.
         - Only OBSERVE again if you changed the viewport (e.g., scrolled further) or navigated to a new page.
+
+        State-Dependent UI (Modals, Popovers)
+        - Before clicking controls that belong to a modal/popover (e.g., Continue/Cancel/X), first OBSERVE with a yes/no verification:
+          "Is the trade-in modal currently visible? Answer yes/no and list the visible primary buttons."
+        - If the user chose to cancel/dismiss: click the clearly labeled Cancel or Close (X). Then OBSERVE to confirm the modal is gone before performing any further modal actions.
+        - If the modal is not present, do NOT click its controls. Continue with the next logical step on the main page (e.g., try Add to Cart again or proceed to Cart).
 
         Media Controls (YouTube and similar)
         - Do not infer play state solely from a visible play icon. On most players: play icon means paused; pause icon means playing.
