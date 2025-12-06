@@ -34,16 +34,18 @@ class WebNavigator:
                     result = None
                     if action == "navigate":
                         self._navigate(data)
+                        result = True
                     elif action == "take_screenshot":
                         result = self._take_screenshot()
                     elif action == "scroll":
                         self._scroll(data)
+                        result = True
                     elif action == "click":
-                        self._click(data)
+                        result = self._click(data)
                     elif action == "type":
-                        self._type(data)
+                        result = self._type(data)
                     elif action == "clear_input":
-                        self._clear_input(data)
+                        result = self._clear_input(data)
                     
                     self.result_queue.put(result)
                 
@@ -52,34 +54,36 @@ class WebNavigator:
                 except Exception as e:
                     print(f"Error in Playwright thread for action '{action}':")
                     traceback.print_exc()
+                    self.result_queue.put(False) # Put False on error
 
             self.browser.close()
 
     def _on_new_page_internal(self, new_page):
-        print("🤖 New tab opened. Switching context.")
+        print("🤖 New tab or window opened. Switching context.")
         self.page = new_page
+        self.page.bring_to_front()
 
     def _execute_command(self, command):
         self.command_queue.put(command)
         return self.result_queue.get()
 
     def navigate(self, url):
-        self._execute_command({"action": "navigate", "data": url})
+        return self._execute_command({"action": "navigate", "data": url})
 
     def take_screenshot(self):
         return self._execute_command({"action": "take_screenshot"})
 
     def scroll(self, direction):
-        self._execute_command({"action": "scroll", "data": direction})
+        return self._execute_command({"action": "scroll", "data": direction})
 
     def click(self, element_description):
-        self._execute_command({"action": "click", "data": element_description})
+        return self._execute_command({"action": "click", "data": element_description})
 
     def type(self, text, element_description):
-        self._execute_command({"action": "type", "data": {"text": text, "element_description": element_description}})
+        return self._execute_command({"action": "type", "data": {"text": text, "element_description": element_description}})
     
     def clear_input(self, element_description):
-        self._execute_command({"action": "clear_input", "data": element_description})
+        return self._execute_command({"action": "clear_input", "data": element_description})
 
     def close(self):
         self._stop_event.set()
@@ -101,35 +105,46 @@ class WebNavigator:
         self.page.wait_for_timeout(1000)
 
     def _click(self, element_description):
+        self.page.bring_to_front()
         viewport_size = self.page.viewport_size
         self.page.mouse.move(viewport_size['width'] / 2, viewport_size['height'] / 2)
         self.page.wait_for_timeout(500) 
 
         screenshot_bytes = self._take_screenshot()
         bbox = self.vision_processor.get_element_bbox(screenshot_bytes, element_description)
-        x1, y1, x2, y2 = bbox
         
+        if bbox is None:
+            return False # Signal failure
+
+        x1, y1, x2, y2 = bbox
         px1, py1 = int(x1 / 1000 * viewport_size['width']), int(y1 / 1000 * viewport_size['height'])
         px2, py2 = int(x2 / 1000 * viewport_size['width']), int(y2 / 1000 * viewport_size['height'])
         cx, cy = (px1 + px2) // 2, (py1 + py2) // 2
         print(f"Clicking on '{element_description}' at: ({cx}, {cy})")
         self.page.mouse.click(cx, cy)
-        self.page.wait_for_timeout(1000) 
+        self.page.wait_for_timeout(1000)
+        return True # Signal success
 
     def _type(self, data):
         text, element_description = data["text"], data["element_description"]
-        self._clear_input(element_description)
+        if not self._clear_input(element_description):
+            return False
+        
         print(f"Typing '{text}' into '{element_description}'")
         self.page.keyboard.type(text)
         print("Pressing Enter to submit.")
         self.page.keyboard.press("Enter")
         self.page.wait_for_load_state("domcontentloaded")
         self.page.wait_for_timeout(1000)
-    
+        return True
+
     def _clear_input(self, element_description):
         print(f"Attempting to clear input field: '{element_description}'")
-        self._click(element_description)
+        if not self._click(element_description):
+            return False
+        
         self.page.keyboard.press("Control+A")
         self.page.keyboard.press("Backspace")
         self.page.wait_for_timeout(500)
         print(f"Input field '{element_description}' cleared.")
+        return True

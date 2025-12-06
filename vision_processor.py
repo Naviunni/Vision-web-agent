@@ -23,7 +23,6 @@ class VisionProcessor:
         except json.JSONDecodeError:
             return {"raw_output": response.text}
 
-
     def describe_image(self, image_bytes, question=None):
         """
         Takes an image and returns a description of the elements on the page.
@@ -48,13 +47,18 @@ class VisionProcessor:
     def get_element_bbox(self, image_bytes, element_description):
         """
         Takes an image and a natural language description of an element,
-        and returns the bounding box of that element.
+        and returns the bounding box of that element or None if not found.
         """
         prompt = f"Give the exact bounding box of the {element_description} with absolute pixel coordinates in the format [x1,y1,x2,y2]."
         model_output = self.query_model(image_bytes, prompt)
         raw = model_output["raw_output"].strip()
-        bbox = extract_bbox(raw)
-        return bbox
+        
+        try:
+            bbox = extract_bbox(raw)
+            return bbox
+        except ValueError:
+            print(f"Vision model could not find bounding box for: '{element_description}'")
+            return None
 
     def annotate_image(self, image_bytes, bbox):
         """
