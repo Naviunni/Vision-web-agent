@@ -34,13 +34,21 @@ class Agent:
 
         while True:
             screenshot_bytes = self.web_navigator.take_screenshot()
+            current_url = self.web_navigator.get_current_url()
             
             if not screenshot_description:
                  screenshot_description = self.observer.observe(screenshot_bytes)
+                 # Add observation to history so the planner can build memory
+                 self.conversation_history.append({
+                     "role": "assistant",
+                     "content": f"Observation (URL={self.web_navigator.get_current_url()}):\n{screenshot_description}"
+                 })
 
-            socketio.emit('agent_observation', {'data': screenshot_description})
+            # Include current URL in the observation stream for transparency
+            display_obs = (f"Current URL: {current_url}\n" if current_url else "") + (screenshot_description or "")
+            socketio.emit('agent_observation', {'data': display_obs})
 
-            action = self.planner.get_next_action(self.conversation_history, screenshot_description)
+            action = self.planner.get_next_action(self.conversation_history, screenshot_description, current_url)
 
             screenshot_description = ""
             action_failed = False
@@ -65,7 +73,13 @@ class Agent:
             retry_count = 0 
 
             if action["action"] == "OBSERVE":
-                screenshot_description = self.observer.observe(screenshot_bytes, action.get("question"))
+                q = action.get("question")
+                screenshot_description = self.observer.observe(screenshot_bytes, q)
+                # Persist observation to history to avoid repeated re-observations
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": f"Observation (answering '{q}'):\n{screenshot_description}"
+                })
                 continue
 
             elif action["action"] == "SUMMARIZE_OPTIONS":

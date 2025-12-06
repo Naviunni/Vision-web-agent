@@ -48,6 +48,8 @@ class WebNavigator:
                         result = self._clear_input(data)
                     elif action == "wait":
                         result = self._wait(data)
+                    elif action == "get_url":
+                        result = self._get_url()
                     
                     self.result_queue.put(result)
                 
@@ -89,6 +91,9 @@ class WebNavigator:
 
     def wait(self, seconds):
         return self._execute_command({"action": "wait", "data": seconds})
+
+    def get_current_url(self):
+        return self._execute_command({"action": "get_url", "data": None})
 
     def close(self):
         self._stop_event.set()
@@ -145,12 +150,40 @@ class WebNavigator:
 
     def _clear_input(self, element_description):
         print(f"Attempting to clear input field: '{element_description}'")
-        if not self._click(element_description):
+        # Compute click target via vision and triple-click to focus+select
+        screenshot_bytes = self._take_screenshot()
+        bbox = self.vision_processor.get_element_bbox(screenshot_bytes, element_description)
+        if bbox is None:
             return False
-        
-        self.page.keyboard.press("Control+A")
-        self.page.keyboard.press("Backspace")
-        self.page.wait_for_timeout(500)
+
+        viewport_size = self.page.viewport_size
+        x1, y1, x2, y2 = bbox
+        px1, py1 = int(x1 / 1000 * viewport_size['width']), int(y1 / 1000 * viewport_size['height'])
+        px2, py2 = int(x2 / 1000 * viewport_size['width']), int(y2 / 1000 * viewport_size['height'])
+        cx, cy = (px1 + px2) // 2, (py1 + py2) // 2
+
+        # Bring to front, focus with single click, then double-click to select
+        self.page.bring_to_front()
+        self.page.mouse.move(cx, cy)
+        self.page.wait_for_timeout(60)
+        self.page.mouse.click(cx, cy)      # focus
+        self.page.wait_for_timeout(80)
+        self.page.mouse.dblclick(cx, cy)   # select word/field
+        self.page.wait_for_timeout(120)
+
+        # Aggressive clearing: many backspaces, then a few deletes
+        for _ in range(40):
+            try:
+                self.page.keyboard.press("Backspace")
+            except Exception:
+                break
+        self.page.wait_for_timeout(80)
+        for _ in range(10):
+            try:
+                self.page.keyboard.press("Delete")
+            except Exception:
+                break
+        self.page.wait_for_timeout(120)
         print(f"Input field '{element_description}' cleared.")
         return True
 
@@ -161,3 +194,9 @@ class WebNavigator:
             ms = 1000
         self.page.wait_for_timeout(ms)
         return True
+
+    def _get_url(self):
+        try:
+            return self.page.url
+        except Exception:
+            return ""

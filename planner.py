@@ -9,7 +9,7 @@ class Planner:
         # Default to a cheaper capable model; allow override via env
         self.model = os.getenv("OPENAI_PLANNER_MODEL", "gpt-4o-mini")
 
-    def get_next_action(self, conversation_history, screenshot_description):
+    def get_next_action(self, conversation_history, screenshot_description, current_url=None):
         print("🤖 Deciding next action with GPT-4...")
 
         system_prompt = """
@@ -32,14 +32,18 @@ class Planner:
         - If the user's goal is shopping, adopt this workflow:
           1) Search: Navigate to the site and search for the item.
           2) Explore: On results, SCROLL once to load more items.
-          3) Observe & Collect: Use OBSERVE to gather details (title, price) for 3–4 items.
-          4) Summarize: Use SUMMARIZE_OPTIONS to present the collected items.
+          3) Observe & Collect: Use OBSERVE to gather details (title, price) for 3–4 distinct items. Include retailer names when visible.
+          4) Summarize: After you have at least 3 items, use SUMMARIZE_OPTIONS to present the collected items and ASK_USER which to open.
           5) Act on Choice: After the user chooses, CLICK the chosen item or its Add to Cart.
 
         Verify Before Repeating
         - When you intend to repeat a state-changing action (e.g., clicking Add to Cart again), first issue an OBSERVE with a pointed verification question about the intended effect.
         - Example verification questions: "Is the chosen item already in the cart? Answer yes or no and provide a brief evidence phrase from the UI." or "Did the page show any cart/added indicators? Answer yes or no with a short rationale."
         - If the OBSERVE indicates success, do not repeat the action; instead proceed (e.g., FINISH or navigate to cart if the user asked).
+
+        Avoid Observation Loops on Results Pages
+        - Do not issue multiple OBSERVE actions that restate the same items on the same page. After one OBSERVE and (optionally) one SCROLL, summarize and ASK_USER.
+        - Only OBSERVE again if you changed the viewport (e.g., scrolled further) or navigated to a new page.
 
         Media Controls (YouTube and similar)
         - Do not infer play state solely from a visible play icon. On most players: play icon means paused; pause icon means playing.
@@ -54,8 +58,10 @@ class Planner:
 
         General Rules
         - Be proactive.
-        - For searches, navigate to the homepage first, then use the search bar.
+        - For searches, navigate to a general-purpose search engine (e.g., Google) first, then use the search bar unless the user specifies a site.
         - A pause button on a video means it's already playing.
+        - Never navigate to placeholder or documentation-only domains (e.g., example.com, example.org) for real tasks.
+        - Do not repeatedly NAVIGATE to the same URL you are already on (see Current URL). If you are already at the intended site, proceed with the next logical step (e.g., TYPE into the search bar, CLICK the search button).
 
         Respond with a single, well-formed JSON object.
         """
@@ -66,6 +72,9 @@ class Planner:
 
         Current Page Description:
         {screenshot_description}
+
+        Current URL:
+        {current_url or 'unknown'}
 
         Based on the user's goal and your workflow, what is the next logical action?
         """
