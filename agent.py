@@ -140,6 +140,15 @@ class Agent:
                 else:
                     if not self.web_navigator.scroll(direction): action_failed = True
 
+            elif action["action"] == "WAIT":
+                seconds = action.get("seconds")
+                response_to_user = f"I will wait {seconds} seconds."
+                if seconds is None:
+                    action_failed = True
+                    failure_reason = "Missing 'seconds' for WAIT action."
+                else:
+                    if not self.web_navigator.wait(seconds): action_failed = True
+
             elif action["action"] == "CLEAR_INPUT":
                 element = action.get("element_description")
                 response_to_user = f"I will clear the input field '{element}'."

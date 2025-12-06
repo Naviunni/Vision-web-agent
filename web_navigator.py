@@ -46,6 +46,8 @@ class WebNavigator:
                         result = self._type(data)
                     elif action == "clear_input":
                         result = self._clear_input(data)
+                    elif action == "wait":
+                        result = self._wait(data)
                     
                     self.result_queue.put(result)
                 
@@ -84,6 +86,9 @@ class WebNavigator:
     
     def clear_input(self, element_description):
         return self._execute_command({"action": "clear_input", "data": element_description})
+
+    def wait(self, seconds):
+        return self._execute_command({"action": "wait", "data": seconds})
 
     def close(self):
         self._stop_event.set()
@@ -147,4 +152,12 @@ class WebNavigator:
         self.page.keyboard.press("Backspace")
         self.page.wait_for_timeout(500)
         print(f"Input field '{element_description}' cleared.")
+        return True
+
+    def _wait(self, seconds):
+        try:
+            ms = int(float(seconds) * 1000)
+        except Exception:
+            ms = 1000
+        self.page.wait_for_timeout(ms)
         return True

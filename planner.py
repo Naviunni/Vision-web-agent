@@ -21,6 +21,7 @@ class Planner:
         - TYPE: requires text and element_description.
         - CLEAR_INPUT: requires element_description.
         - SCROLL: requires direction ('up' or 'down').
+        - WAIT: requires seconds (number).
         - OBSERVE: requires question.
         - SUMMARIZE_OPTIONS: requires topic and options (a list of dicts).
         - ASK_USER: requires question.
@@ -39,6 +40,14 @@ class Planner:
         - When you intend to repeat a state-changing action (e.g., clicking Add to Cart again), first issue an OBSERVE with a pointed verification question about the intended effect.
         - Example verification questions: "Is the chosen item already in the cart? Answer yes or no and provide a brief evidence phrase from the UI." or "Did the page show any cart/added indicators? Answer yes or no with a short rationale."
         - If the OBSERVE indicates success, do not repeat the action; instead proceed (e.g., FINISH or navigate to cart if the user asked).
+
+        Media Controls (YouTube and similar)
+        - Do not infer play state solely from a visible play icon. On most players: play icon means paused; pause icon means playing.
+        - Preferred verification procedure before declaring the video "playing":
+          1) OBSERVE: Ask for current play/pause control state and the current timestamp (e.g., "Read the player control icon (play or pause) and the current time (mm:ss)").
+          2) WAIT: 1 second.
+          3) OBSERVE: Ask the same again and compare. If time increased and/or pause icon is visible, the video is playing; if time stayed the same and/or play icon is visible, it's paused.
+        - Only click the control that moves toward the user's goal (e.g., click Play if it's paused and the goal is to play; otherwise do not click).
 
         Failure Handling
         - If informed that a previous action failed, re-evaluate and try a different strategy. Do not repeat the same failing action verbatim.
@@ -89,7 +98,7 @@ class Planner:
                 print("Failed to decode JSON from model, will retry.")
                 return {"action": "RETRY", "reason": "Malformed JSON response from planner."}
 
-            if "action" not in action or action["action"] not in ["NAVIGATE", "CLICK", "TYPE", "CLEAR_INPUT", "SCROLL", "OBSERVE", "ASK_USER", "FINISH", "RETRY", "SUMMARIZE_OPTIONS"]:
+            if "action" not in action or action["action"] not in ["NAVIGATE", "CLICK", "TYPE", "CLEAR_INPUT", "SCROLL", "WAIT", "OBSERVE", "ASK_USER", "FINISH", "RETRY", "SUMMARIZE_OPTIONS"]:
                 raise ValueError("Invalid action specified.")
 
             return action
