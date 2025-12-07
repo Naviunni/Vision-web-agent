@@ -7,6 +7,9 @@ An agentic web navigator that combines a vision model (Qwen-VL) for screen under
 - Browser (Playwright): Executes deterministic interactions.
 - UI (Flask + Socket.IO): Simple chat for goals, observations, and responses.
 
+## Demo
+https://youtu.be/WTDeM06LkPg
+
 ## Features
 - Vision-first routing for all “what’s on screen?” tasks.
 - Action set: NAVIGATE, CLICK, TYPE, CLEAR_INPUT, SCROLL, WAIT, OBSERVE, SUMMARIZE_OPTIONS, ASK_USER, FINISH.
