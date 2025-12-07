@@ -3,25 +3,33 @@ import io
 from PIL import Image
 import json
 from utils import extract_bbox, draw_box, draw_point
+import os
 
 class VisionProcessor:
-    def __init__(self, model_url="http://localhost:8000/infer"):
-        self.model_url = model_url
+    def __init__(self, model_url=None):
+        self.model_url = model_url or os.environ.get("VISION_MODEL_URL", "http://localhost:8000/infer")
 
     def query_model(self, image_bytes, prompt):
         """Send screenshot + prompt to the Qwen-VL server."""
-        response = requests.post(
-            self.model_url,
-            data={"prompt": prompt},
-            files={"image": ("screenshot.png", image_bytes, "image/png")},
-            timeout=120,
-        )
-        response.raise_for_status()
-        
-        try:
-            return response.json()
-        except json.JSONDecodeError:
-            return {"raw_output": response.text}
+        # Basic retries for transient server errors
+        last_exc = None
+        for attempt in range(2):
+            try:
+                response = requests.post(
+                    self.model_url,
+                    data={"prompt": prompt},
+                    files={"image": ("screenshot.png", image_bytes, "image/png")},
+                    timeout=120,
+                )
+                response.raise_for_status()
+                try:
+                    return response.json()
+                except json.JSONDecodeError:
+                    return {"raw_output": response.text}
+            except requests.exceptions.RequestException as e:
+                last_exc = e
+        # Surface a structured error for the agent
+        raise RuntimeError(f"Vision model request failed: {last_exc}")
 
     def describe_image(self, image_bytes, question=None):
         """

@@ -21,6 +21,16 @@ class WebNavigator:
                 viewport={"width": 1280, "height": 900},
                 device_scale_factor=1
             )
+            # Abort font requests to avoid screenshot hangs on "waiting for fonts to load"
+            try:
+                def _route_all(route):
+                    req = route.request
+                    if req.resource_type == "font":
+                        return route.abort()
+                    return route.continue_()
+                self.context.route("**/*", _route_all)
+            except Exception:
+                pass
             self.page = self.context.new_page()
             
             self.context.on("page", self._on_new_page_internal)
@@ -105,7 +115,17 @@ class WebNavigator:
 
     def _take_screenshot(self):
         self.page.bring_to_front()
-        return self.page.screenshot()
+        # Nudge mouse to center so hidden controls (e.g., video bars) appear
+        try:
+            vp = self.page.viewport_size
+            cx, cy = int(vp['width'] / 2), int(vp['height'] / 2)
+            self.page.mouse.move(cx, cy)
+            # Small settle to allow overlays/controls to reveal
+            self.page.wait_for_timeout(200)
+        except Exception:
+            pass
+        # Give a more generous timeout; some pages are slow
+        return self.page.screenshot(timeout=60000)
 
     def _scroll(self, direction):
         if direction == "down":
