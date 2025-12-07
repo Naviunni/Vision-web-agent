@@ -1,4 +1,4 @@
-# Vision-Model Web Navigator (Accessibility-Focused)
+# Vision-Model Web Navigator
 
 An agentic web navigator that combines a vision model (Qwen-VL) for screen understanding with a language planner (OpenAI GPT) for deciding actions. It drives a real browser (Playwright) to complete multi-step tasks while keeping interactions accessible and transparent.
 
