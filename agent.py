@@ -34,15 +34,31 @@ class Agent:
 
         while True:
             screenshot_bytes = self.web_navigator.take_screenshot()
+            if not isinstance(screenshot_bytes, (bytes, bytearray)):
+                socketio.emit('agent_response', {'data': 'I could not capture a screenshot (browser timeout). Retrying...'} )
+                # brief backoff to let the page settle
+                try:
+                    self.web_navigator.wait(1)
+                except Exception:
+                    pass
+                continue
             current_url = self.web_navigator.get_current_url()
             
             if not screenshot_description:
-                 screenshot_description = self.observer.observe(screenshot_bytes)
-                 # Add observation to history so the planner can build memory
-                 self.conversation_history.append({
-                     "role": "assistant",
-                     "content": f"Observation (URL={self.web_navigator.get_current_url()}):\n{screenshot_description}"
-                 })
+                try:
+                    screenshot_description = self.observer.observe(screenshot_bytes)
+                except Exception as e:
+                    socketio.emit('agent_response', {'data': f'Vision service error: {e}. Retrying...'} )
+                    try:
+                        self.web_navigator.wait(1)
+                    except Exception:
+                        pass
+                    continue
+                # Add observation to history so the planner can build memory
+                self.conversation_history.append({
+                    "role": "assistant",
+                    "content": f"Observation (URL={self.web_navigator.get_current_url()}):\n{screenshot_description}"
+                })
 
             # Include current URL in the observation stream for transparency
             display_obs = (f"Current URL: {current_url}\n" if current_url else "") + (screenshot_description or "")
